@@ -1,0 +1,55 @@
+{- SPDX-License-Identifier: GPL-3.0
+
+    Copyright 2021 0KIMS association.
+
+    This file is generated with [snarkJS](https://github.com/iden3/snarkjs).
+
+    snarkJS is a free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    snarkJS is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+    License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with snarkJS. If not, see <https://www.gnu.org/licenses/>.
+-}
+
+#include "imports/stdlib.fc";
+
+slice bls_g1_multiexp(slice x_1, int s_1, int n) asm "BLS_G1_MULTIEXP";
+slice bls_g1_mul(slice x, int s) asm "BLS_G1_MUL";
+slice bls_g1_add(slice x, slice y) asm "BLS_G1_ADD";
+slice bls_g1_neg(slice x) asm "BLS_G1_NEG";
+int bls_g1_ingroup(slice x) asm "BLS_G1_INGROUP";
+int bls_g1_iszero(slice x) asm "BLS_G1_ISZERO";
+slice bls_g1_zero() asm "BLS_G1_ZERO";
+int bls_paireq(slice x_1, slice y_1, slice x_2, slice y_2, slice x_3, slice y_3, slice x_4, slice y_4, int n) asm "BLS_PAIRING";
+
+const slice alpha  = "<%= vk_alpha_1 %>"s;
+const slice beta  = "<%= vk_beta_2 %>"s;
+const slice gamma = "<%= vk_gamma_2 %>"s;
+const slice delta = "<%= vk_delta_2 %>"s;
+
+<% for (let i=0; i<IC.length; i++) { %>
+const slice IC<%=i%> = "<%=IC[i]%>"s;
+<% } %>
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+
+}
+
+
+int verify_proof(slice p_a, slice p_b, slice p_c, tuple pub_signals) method_id {
+    var cpub = bls_g1_multiexp(
+        <% for (let i = 1; i <= nPublic; i++) { %>IC<%=i%>, pub_signals.at(<%=i-1%>), <% } %>
+        <%=nPublic%>
+    );
+    cpub = bls_g1_add(cpub, IC0);
+    var np_a = bls_g1_neg(p_a);
+    var res = bls_paireq(np_a , p_b, cpub , gamma, p_c , delta, alpha, beta, 4);
+    return res;
+}
