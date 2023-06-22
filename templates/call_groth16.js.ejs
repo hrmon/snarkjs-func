@@ -1,6 +1,6 @@
-import { TupleBuilder, beginCell } from 'ton-core';
+const { TupleBuilder, beginCell } = require('ton-core');
 
-export function generateFuncCallData() {
+module.exports = function generateFuncCallData() {
     const A = hexToSlice("<%= proof.A %>");
     const B = hexToSlice("<%= proof.B %>");
     const C = hexToSlice("<%= proof.C %>");
