@@ -1,0 +1,421 @@
+#include "imports/stdlib.fc";
+
+slice bls_g1_multiexp_6(
+    slice x_1, int s_1, slice x_2, int s_2,
+    slice x_3, int s_3, slice x_4, int s_4,
+    slice x_5, int s_5, slice x_6, int s_6) asm "6 INT BLS_G1_MULTIEXP";
+slice bls_g1_multiexp_5(
+    slice x_1, int s_1, slice x_2, int s_2,
+    slice x_3, int s_3, slice x_4, int s_4,
+    slice x_5, int s_5) asm "5 INT BLS_G1_MULTIEXP";
+slice bls_g1_multiexp_3(
+    slice x_1, int s_1, slice x_2, int s_2,
+    slice x_3, int s_3) asm "3 INT BLS_G1_MULTIEXP";
+slice bls_g1_mul(slice x, int s) asm "BLS_G1_MUL";
+slice bls_g1_add(slice x, slice y) asm "BLS_G1_ADD";
+slice bls_g1_sub(slice x, slice y) asm "BLS_G1_SUB";
+slice bls_g1_neg(slice x) asm "BLS_G1_NEG";
+int bls_g1_ingroup(slice x) asm "BLS_G1_INGROUP";
+int bls_g1_iszero(slice x) asm "BLS_G1_ISZERO";
+slice bls_g1_zero() asm "BLS_G1_ZERO";
+int hash_keccak256_12(
+    slice s1, slice s2, slice s3, slice s4,
+    slice s5, slice s6, slice s7, slice s8,
+    slice s9, slice s10, slice s11
+    <%for (let i=0; i<nPublic;i++) {%>,slice s<%=i+12%> <%}%>
+    ) asm "<%=11+nPublic%> INT HASHEXT_KECCAK256";
+int hash_keccak256_1(slice s1) asm "1 INT HASHEXT_KECCAK256";
+int hash_keccak256_2(slice s1, slice s2) asm "2 INT HASHEXT_KECCAK256";
+int hash_keccak256_3(slice s1, slice s2, slice s3) asm "3 INT HASHEXT_KECCAK256";
+int hash_keccak256_4(slice s1, slice s2, slice s3, slice s4) asm "4 INT HASHEXT_KECCAK256";
+int hash_keccak256_6(
+    slice s1, slice s2, slice s3,
+    slice s4, slice s5, slice s6, slice s7) asm "7 HASHEXT_KECCAK256";
+
+int bls_paireq(slice x_1, slice y_1, slice x_2, slice y_2) asm "2 INT BLS_PAIRING";
+forall X -> (tuple, X) ~tpop(tuple t) asm "TPOP";
+forall X -> (X) last(tuple t) asm "LAST";
+int tuple_length(tuple t) asm "TLEN";
+
+const w1 = <%=w%>;
+;; Scalar field size (r)
+const q  = 52435875175126190479447740508185965837690552500527637822603658699938581184513;
+
+;; generators
+const G1 = "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"s;
+const G2 = "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"s;
+
+;; Verification Key data
+const n         = <%=2**power%>;
+const nPublic   = <%=nPublic%>;
+const nLagrange = <%=Math.max(nPublic, 1)%>;
+
+const Qm = "<%= Qm %>"s;
+const Ql = "<%= Ql %>"s;
+const Qr = "<%= Qr %>"s;
+const Qo = "<%= Qo %>"s;
+const Qc = "<%= Qc %>"s;
+const S1 = "<%= S1 %>"s;
+const S2 = "<%= S2 %>"s;
+const S3 = "<%= S3 %>"s;
+const X2 = "<%= X2 %>"s;
+const k2 = <%= k2 %>;
+const k1 = <%= k1 %>;
+
+;; Proof calldata
+;; Polynomial commitments
+slice pA(tuple proof) { return proof.at(0); }
+slice pB(tuple proof) { return proof.at(1); }
+slice pC(tuple proof) { return proof.at(2); }
+slice pZ(tuple proof) { return proof.at(3); }
+slice pT1(tuple proof) { return proof.at(4); }
+slice pT2(tuple proof) { return proof.at(5); }
+slice pT3(tuple proof) { return proof.at(6); }
+slice pWxi(tuple proof) { return proof.at(7); }
+slice pWxiw(tuple proof) { return proof.at(8); }
+;; Opening evaluations
+int pEval_a(tuple proof) { return proof.at(9); }
+int pEval_b(tuple proof) { return proof.at(10); }
+int pEval_c(tuple proof) { return proof.at(11); }
+int pEval_zw(tuple proof) { return proof.at(12); }
+int pEval_s1(tuple proof) { return proof.at(13); }
+int pEval_s2(tuple proof) { return proof.at(14); }
+
+;; ;; Memory data
+;; ;; Challenges
+int alpha(tuple challenges) { return challenges.at(0); }
+int beta(tuple challenges) { return challenges.at(1); }
+int gamma(tuple challenges) { return challenges.at(2); }
+int alpha2(tuple challenges) { return challenges.at(3); }
+int pXi(tuple challenges) { return challenges.at(4); }
+int pXin(tuple challenges) { return challenges.at(5); }
+int pZh(tuple challenges) { return challenges.at(6); }
+int pU(tuple challenges) { return challenges.at(7); }
+tuple pV(tuple challenges) { return challenges.at(8); }
+
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+
+}
+
+(tuple) reverse_tuple(tuple values) {
+  var reversed = empty_tuple();
+  while (values.tuple_length()) {
+    var x = values~tpop();
+    reversed~tpush(x);
+  }
+  return reversed;
+}
+
+int mulmodq(int x, int y) {
+    (_, var r) = muldivmod(x, y, q);
+    return r;
+}
+
+int inverse(int a, int q) {
+    var t = 0;
+    var newt = 1;
+    var r = q;
+    var newr = a;
+    int quotient = 0;
+    int aux = 0;
+
+    while (newr) {
+        quotient = r / newr;
+        aux = t - quotient * newt;
+        t = newt;
+        newt = aux;
+
+        aux = r - (quotient * newr);
+        r = newr;
+        newr = aux;
+    }
+    if (t < 0) {
+        t = t + q;
+    }
+
+    return t;
+}
+
+(tuple, int) inverse_array(tuple vals, int n, tuple challenges) {
+    int acc = challenges.pZh();
+    int it = 0;
+    var pAux = empty_tuple();
+
+    while (it < n) {
+        pAux~tpush(acc);
+        acc = mulmodq(acc, vals.at(it));
+        it = it + 1;
+    }
+    acc = inverse(acc, q);
+    it = n - 1;
+    var result = empty_tuple();
+    var inv = 0;
+    while (it >= 0) {
+        inv = mulmodq(acc, pAux.at(it));
+        acc = mulmodq(acc, vals.at(it));
+        result~tpush(inv);
+        it = it - 1;
+    }
+    return (reverse_tuple(result), acc);
+}
+
+slice calculate_e(int pR0, tuple proof, tuple challenges) {
+    var s = (q - pR0) % q;
+
+    s = (s + mulmodq(proof.pEval_a(),  challenges.pV().at(1))) % q;
+    s = (s + mulmodq(proof.pEval_b(),  challenges.pV().at(2))) % q;
+    s = (s + mulmodq(proof.pEval_c(),  challenges.pV().at(3))) % q;
+    s = (s + mulmodq(proof.pEval_s1(), challenges.pV().at(4))) % q;
+    s = (s + mulmodq(proof.pEval_s2(), challenges.pV().at(5))) % q;
+    s = (s + mulmodq(proof.pEval_zw(), challenges.pU())) % q;
+
+    var pE = bls_g1_mul(G1, s);
+
+    return pE;
+}
+
+slice calculate_f(slice pD, tuple proof, tuple challenges) {
+    var pF = bls_g1_multiexp_6(
+        pD, 1,
+        proof.pA(), challenges.pV().at(1),
+        proof.pB(), challenges.pV().at(2),
+        proof.pC(), challenges.pV().at(3),
+        S1, challenges.pV().at(4),
+        S2, challenges.pV().at(5)
+    );
+           
+    return pF;
+}
+
+slice calculate_d(tuple pEval_l, tuple proof, tuple challenges) {
+
+    ;; d1
+    var d1 = bls_g1_multiexp_5(
+        Qc, 1,
+        Qm, mulmodq(proof.pEval_a(), proof.pEval_b()),
+        Ql, proof.pEval_a(),
+        Qr, proof.pEval_b(),
+        Qo, proof.pEval_c()
+    );
+
+    var pBetaXi = mulmodq(challenges.beta(), challenges.pXi());
+    ;; d2
+    var val1 = (((challenges.gamma() + proof.pEval_a()) % q) + pBetaXi) % q;
+    var val2 = ((((proof.pEval_b() + mulmodq(pBetaXi, k1)) % q) + challenges.gamma()) % q);
+    var val3 = ((((proof.pEval_c() + mulmodq(pBetaXi, k2)) % q) + challenges.gamma()) % q);
+    var d2a = mulmodq(mulmodq(mulmodq(val1, val2), val3), challenges.alpha());
+    var d2b = mulmodq(pEval_l.at(0), challenges.alpha2());
+    var d2 = bls_g1_mul(proof.pZ(), (((d2a + d2b) % q) + challenges.pU()) % q);
+
+    ;; d3
+    val1 = (((proof.pEval_a() + mulmodq(challenges.beta(), proof.pEval_s1())) % q) + challenges.gamma()) % q;
+    val2 = (((proof.pEval_b() + mulmodq(challenges.beta(), proof.pEval_s2())) % q) + challenges.gamma()) % q;
+    val3 = mulmodq(mulmodq(challenges.alpha(), challenges.beta()), proof.pEval_zw());
+    var d3 = bls_g1_mul(S3, mulmodq(mulmodq(val1, val2), val3));
+
+    ;; d4
+    var xin2 = mulmodq(challenges.pXin(), challenges.pXin());
+    var d4 = bls_g1_multiexp_3(proof.pT1(), 1, proof.pT2(), challenges.pXin(), proof.pT3(), xin2);
+    d4 = bls_g1_mul(d4, challenges.pZh());
+
+    var pD = bls_g1_sub(bls_g1_sub(bls_g1_add(d1, d2), d3), d4);
+
+    return pD;
+}
+
+int calculate_r0(int pPI, tuple pEval_l, tuple proof, tuple challenges) {
+    var e1 = pPI;
+
+    var e2 =  mulmodq(pEval_l.at(0), challenges.alpha2());
+
+    var e3a = (proof.pEval_a() + mulmodq(challenges.beta(), proof.pEval_s1())) % q;
+
+    e3a = e3a + challenges.gamma() % q;
+
+    var e3b = (proof.pEval_b() + mulmodq(challenges.beta(), proof.pEval_s2())) % q;
+
+    e3b = (e3b + challenges.gamma()) % q;
+
+    var e3c = (proof.pEval_c() + challenges.gamma()) % q;
+
+    var e3 = mulmodq(mulmodq(e3a, e3b), e3c);
+    e3 = mulmodq(e3, proof.pEval_zw());
+    e3 = mulmodq(e3, challenges.alpha());
+
+    var r0 = (e1 + ((q - e2) % q)) % q;
+    r0 = (r0 + ((q - e3) % q)) % q;
+
+    return r0;
+}
+
+tuple calculate_lagrange(tuple challenges) {
+    var w = 1;
+    var pEval_l = empty_tuple();
+    <% for (let i=1; i<=Math.max(nPublic, 1); i++) { %>
+    pEval_l~tpush(mulmodq(n, ((challenges.pXi() - w) + q) % q));
+    <% if (i<Math.max(nPublic, 1)) { %>
+    w = mulmodq(w, w1);
+    <% } %>
+    <% } %>
+
+    (pEval_l, _) = inverse_array(pEval_l, <%=Math.max(nPublic, 1)%>, challenges);
+
+    w = 1;
+
+    var tmp = empty_tuple();
+    <% for (let i=0; i<Math.max(nPublic, 1); i++) { %>
+    <% if (i==0) { %>
+    tmp~tpush(mulmodq(pEval_l.at(0), challenges.pZh()));
+    <% } else { %>
+    tmp~tpush(mulmodq(mulmodq(pEval_l.at(<%=i%>), challenges.pZh()), w));
+    <% } %>
+    <% if (i+1<Math.max(nPublic, 1)) { %>
+    w = mulmodq(w, w1);
+    <% } %>
+    <% } %>
+    ;; tmp~tpush(mulmodq(pEval_l.at(0), challenges.pZh()));
+    pEval_l = tmp;
+    return pEval_l;
+}
+
+int calculate_pi(tuple public_signals, tuple pEval_l) {
+    var pi = 0;
+    var it = 0;
+    repeat(nPublic) {
+        pi = (pi - mulmodq(pEval_l.at(it), public_signals.at(it)) + q) % q;
+        it += 1;
+    }    
+    return pi;
+}
+
+slice to_256bs(int num) {
+    return begin_cell().store_uint(num, 256).end_cell().begin_parse();
+} 
+
+
+tuple calculate_challenges(tuple public_signals, tuple proof) {
+    var aux = 0;
+    var challenges = empty_tuple();
+
+    ;; beta & gamma
+    var vbeta = hash_keccak256_12(
+        Qm,
+        Ql,
+        Qr,
+        Qo,
+        Qc,
+        S1,
+        S2,
+        S3,
+        <%for (let i=0; i<nPublic;i++) {%>
+        to_256bs(public_signals.at(<%=i%>)),
+        <%}%>
+        proof.pA(),
+        proof.pB(),
+        proof.pC()
+    ) % q;
+
+    ;; gamma
+    var vgamma =  hash_keccak256_1(to_256bs(vbeta)) % q;
+
+    ;; alpha
+    aux = hash_keccak256_2(
+        begin_cell()
+        .store_uint(vbeta, 256)
+        .store_uint(vgamma, 256)
+        .end_cell().begin_parse(),
+        proof.pZ()) % q;
+    var valpha = aux;
+    var valpha2 = mulmodq(aux, aux);
+
+    challenges~tpush(valpha);
+    challenges~tpush(vbeta);
+    challenges~tpush(vgamma);
+    challenges~tpush(valpha2);
+
+    ;; xi
+    aux = hash_keccak256_4(to_256bs(aux), proof.pT1(), proof.pT2(), proof.pT3()) % q;
+    var xi = aux;
+
+    ;; v
+    var v1 = hash_keccak256_3(
+        to_256bs(aux),
+        begin_cell()
+        .store_uint(proof.pEval_a(), 256)
+        .store_uint(proof.pEval_b(), 256)
+        .store_uint(proof.pEval_c(), 256)
+        .end_cell().begin_parse(),
+        begin_cell()
+        .store_uint(proof.pEval_s1(), 256)
+        .store_uint(proof.pEval_s2(), 256)
+        .store_uint(proof.pEval_zw(), 256)
+        .end_cell().begin_parse()
+    ) % q;
+
+    ;; beta * xi
+    var pBetaXi = mulmodq(challenges.beta(), aux);
+
+    ;; xi^n
+    <%for (let i=0; i<power;i++) {%>
+    aux = mulmodq(aux, aux);
+    <%}%>
+
+    var xin = aux;
+    challenges~tpush(xi);
+    challenges~tpush(xin);
+
+    ;; Zh
+    aux = (aux - 1 + q) % q;
+    var zh = aux;
+    challenges~tpush(zh);
+
+    ;; v^2, v^3, v^4, v^5
+    var vt = empty_tuple();
+    vt~tpush(0);
+    vt~tpush(v1);
+    aux = mulmodq(v1, v1);
+    vt~tpush(aux);
+    aux = mulmodq(aux, v1);
+    vt~tpush(aux);
+    aux = mulmodq(aux, v1);
+    vt~tpush(aux);
+    aux = mulmodq(aux, v1);
+    vt~tpush(aux);
+
+    ;; u
+    var u = hash_keccak256_2(proof.pWxi(), proof.pWxiw()) % q;
+    challenges~tpush(u);
+    challenges~tpush(vt);
+    return challenges;
+}
+
+
+int check_pairing(slice pD, slice pE, slice pF, tuple proof, tuple challenges) {
+    var A1 = proof.pWxi();
+    A1 = bls_g1_add(A1, bls_g1_mul(proof.pWxiw(), challenges.pU()));
+    var B1 = bls_g1_mul(proof.pWxi(), challenges.pXi());
+    int s = mulmodq(mulmodq(challenges.pU(), challenges.pXi()), w1);
+    B1 = bls_g1_add(B1, bls_g1_mul(proof.pWxiw(), s));
+    B1 = bls_g1_add(B1, pF);
+    B1 = bls_g1_sub(B1, pE);
+
+    int res = bls_paireq(
+        bls_g1_neg(A1) , X2,
+        B1 , G2
+    );
+
+    return res;
+}
+
+int verify_proof(tuple proof, tuple public_signals) method_id {
+    var challenges = calculate_challenges(public_signals, proof);
+    var pEval_l = calculate_lagrange(challenges);
+    var pPI = calculate_pi(public_signals, pEval_l);
+    var pR0 = calculate_r0(pPI, pEval_l, proof, challenges);
+    slice pD = calculate_d(pEval_l, proof, challenges);
+    slice pE = calculate_e(pR0, proof, challenges);
+    slice pF = calculate_f(pD, proof, challenges);
+    int res = check_pairing(pD, pE, pF, proof, challenges);
+    return res;
+}

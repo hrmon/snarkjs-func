@@ -20,12 +20,14 @@
 import {Scalar} from "ffjavascript";
 import jsSha3 from "js-sha3";
 const { keccak256 } = jsSha3;
+import blst from "./blst/blst.cjs";
 
 const POLYNOMIAL = 0;
 const SCALAR = 1;
 
 export class Keccak256Transcript {
     constructor(curve) {
+        this.curve = curve;
         this.G1 = curve.G1;
         this.Fr = curve.Fr;
 
@@ -53,20 +55,37 @@ export class Keccak256Transcript {
         let nScalars = 0;
 
         this.data.forEach(element => POLYNOMIAL === element.type ? nPolynomials++ : nScalars++);
-
-        let buffer = new Uint8Array(nScalars * this.Fr.n8 + nPolynomials * this.G1.F.n8 * 2);
+        let buffer;
+        if (this.curve.name != 'bls12381') {
+            buffer = new Uint8Array(nScalars * this.Fr.n8 + nPolynomials * this.G1.F.n8 * 2);
+        } else {
+            buffer = new Uint8Array(nScalars * this.Fr.n8 + nPolynomials * this.G1.F.n8);
+        }
         let offset = 0;
 
         for (let i = 0; i < this.data.length; i++) {
             if (POLYNOMIAL === this.data[i].type) {
-                this.G1.toRprUncompressed(buffer, offset, this.data[i].data);
-                offset += this.G1.F.n8 * 2;
+                if (this.curve.name != 'bls12381') {
+                    this.G1.toRprUncompressed(buffer, offset, this.data[i].data);
+                    offset += this.G1.F.n8 * 2;
+                } else {
+                    var buf;
+                    if (this.G1.isZero(this.data[i].data)) {
+                        buf = new Uint8Array(this.G1.F.n8 * 2);
+                        buf[0] = parseInt('40', 16);
+                    } else  {
+                        buf = this.G1.toUncompressed(this.data[i].data);
+                    }
+                    const pBlst = new blst.P1(buf);
+                    buffer.set(pBlst.compress(), offset);
+                    offset += this.G1.F.n8;
+                }
             } else {
                 this.Fr.toRprBE(buffer, offset, this.data[i].data);
                 offset += this.Fr.n8;
             }
         }
-
+        
         const value = Scalar.fromRprBE(new Uint8Array(keccak256.arrayBuffer(buffer)));
         return this.Fr.e(value);
     }

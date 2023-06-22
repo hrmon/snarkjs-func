@@ -718,11 +718,11 @@ async function zkeyExportFuncVerifier(params, options) {
 
     if (await fileExists(path.join(__dirname, "templates"))) {
         templates.groth16 = await fs.promises.readFile(path.join(__dirname, "templates", "verifier_groth16.func.ejs"), "utf8");
-        // templates.plonk = await fs.promises.readFile(path.join(__dirname, "templates", "verifier_plonk.sol.ejs"), "utf8");
+        templates.plonk = await fs.promises.readFile(path.join(__dirname, "templates", "verifier_plonk.func.ejs"), "utf8");
         // templates.fflonk = await fs.promises.readFile(path.join(__dirname, "templates", "verifier_fflonk.sol.ejs"), "utf8");
     } else {
         templates.groth16 = await fs.promises.readFile(path.join(__dirname, "..", "templates", "verifier_groth16.func.ejs"), "utf8");
-        // templates.plonk = await fs.promises.readFile(path.join(__dirname, "..", "templates", "verifier_plonk.sol.ejs"), "utf8");
+        templates.plonk = await fs.promises.readFile(path.join(__dirname, "..", "templates", "verifier_plonk.func.ejs"), "utf8");
         // templates.fflonk = await fs.promises.readFile(path.join(__dirname, "..", "templates", "verifier_fflonk.sol.ejs"), "utf8");
     }
 
