@@ -1,0 +1,56 @@
+import { TupleBuilder, beginCell } from 'ton-core';
+
+export function generateFuncCallData() {
+    const proof = new TupleBuilder();
+    proof.writeSlice(hexToSlice("<%= proof.A %>"));
+    proof.writeSlice(hexToSlice("<%= proof.B %>"));
+    proof.writeSlice(hexToSlice("<%= proof.C %>"));
+    proof.writeSlice(hexToSlice("<%= proof.Z %>"));
+    proof.writeSlice(hexToSlice("<%= proof.T1 %>"));
+    proof.writeSlice(hexToSlice("<%= proof.T2 %>"));
+    proof.writeSlice(hexToSlice("<%= proof.T3 %>"));
+    proof.writeSlice(hexToSlice("<%= proof.Wxi %>"));
+    proof.writeSlice(hexToSlice("<%= proof.Wxiw %>"));
+
+    proof.writeNumber(BigInt("<%= proof.eval_a %>"));
+    proof.writeNumber(BigInt("<%= proof.eval_b %>"));
+    proof.writeNumber(BigInt("<%= proof.eval_c %>"));
+    proof.writeNumber(BigInt("<%= proof.eval_zw %>"));
+    proof.writeNumber(BigInt("<%= proof.eval_s1 %>"));
+    proof.writeNumber(BigInt("<%= proof.eval_s2 %>"));
+    
+    const publicSignals = new TupleBuilder();
+    <% for (let i=0; i<pub.length; i++) { %>
+    publicSignals.writeNumber(<%= pub[i] %>);
+    <% } %>
+    const args = [proof.build(), publicSignals.build()]
+    return args;
+}
+
+
+function hexToSlice(src) {
+    const builder = beginCell();
+    writeStringHex(src, builder);
+    return builder.asSlice();
+}
+
+function writeStringHex(src, builder) {
+    const buff = Buffer.from(src, "hex");
+    writeBuffer(buff, builder);
+
+    function writeBuffer(src, builder) {
+        if (src.length > 0) {
+            let bytes = Math.floor(builder.availableBits / 8);
+            if (src.length > bytes) {
+                let a = src.subarray(0, bytes);
+                let t = src.subarray(bytes);
+                builder = builder.storeBuffer(a);
+                let bb = beginCell();
+                writeBuffer(t, bb);
+                builder = builder.storeRef(bb.endCell());
+            } else {
+                builder = builder.storeBuffer(src);
+            }
+        }
+    }
+}

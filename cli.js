@@ -260,6 +260,12 @@ const commands = [
         action: zkeyExportFuncVerifier
     },
     {
+        cmd: "zkey export funccall [public.json] [proof.json] [func_call.js]",
+        description: "Creates a call data code for func smart contract",
+        alias: ["zkefc", "generatefcall -pub|public -p|proof -c|callcode"],
+        action: zkeyExportFuncCalldata
+    },
+    {
         cmd: "groth16 setup [circuit.r1cs] [powersoftau.ptau] [circuit_0000.zkey]",
         description: "Creates an initial groth16 pkey file with zero contributions",
         alias: ["g16s", "zkn", "zkey new"],
@@ -695,7 +701,7 @@ async function zkeyExportSolidityCalldata(params, options) {
     return 0;
 }
 
-// solidity genverifier [circuit_final.zkey] [verifier.sol]
+// func genverifier [circuit_final.zkey] [verifier.func]
 async function zkeyExportFuncVerifier(params, options) {
     let zkeyName;
     let verifierName;
@@ -707,7 +713,7 @@ async function zkeyExportFuncVerifier(params, options) {
     }
 
     if (params.length < 2) {
-        verifierName = "verifier.sol";
+        verifierName = "verifier.func";
     } else {
         verifierName = params[1];
     }
@@ -729,6 +735,63 @@ async function zkeyExportFuncVerifier(params, options) {
     const verifierCode = await zkey.exportFuncVerifier(zkeyName, templates, logger);
 
     fs.writeFileSync(verifierName, verifierCode, "utf-8");
+
+    return 0;
+}
+
+
+
+// func gencall <public.json> <proof.json> <func_call.js>
+async function zkeyExportFuncCalldata(params, options) {
+    let publicName;
+    let proofName;
+    let callName;
+
+    if (params.length < 1) {
+        publicName = "public.json";
+    } else {
+        publicName = params[0];
+    }
+
+    if (params.length < 2) {
+        proofName = "proof.json";
+    } else {
+        proofName = params[1];
+    }
+
+    if (params.length < 3) {
+        callName = "func_call.js";
+    } else {
+        callName = params[1];
+    }
+
+    if (options.verbose) Logger.setLogLevel("DEBUG");
+
+    const pub = JSON.parse(fs.readFileSync(publicName, "utf8"));
+    const proof = JSON.parse(fs.readFileSync(proofName, "utf8"));
+    const templates = {};
+
+    if (await fileExists(path.join(__dirname, "templates"))) {
+        templates.groth16 = await fs.promises.readFile(path.join(__dirname, "templates", "call_groth16.js.ejs"), "utf8");
+        templates.plonk = await fs.promises.readFile(path.join(__dirname, "templates", "call_plonk.js.ejs"), "utf8");
+        // templates.fflonk = await fs.promises.readFile(path.join(__dirname, "templates", "verifier_fflonk.sol.ejs"), "utf8");
+    } else {
+        templates.groth16 = await fs.promises.readFile(path.join(__dirname, "..", "templates", "call_groth16.js.ejs"), "utf8");
+        templates.plonk = await fs.promises.readFile(path.join(__dirname, "..", "templates", "call_plonk.js.ejs"), "utf8");
+        // templates.fflonk = await fs.promises.readFile(path.join(__dirname, "..", "templates", "verifier_fflonk.sol.ejs"), "utf8");
+    }
+
+    let res;
+    if (proof.protocol == "groth16") {
+        res = await groth16.exportFuncCallData(templates["groth16"], proof, pub);
+    } else if (proof.protocol == "plonk") {
+        res = await plonk.exportFuncCallData(templates["plonk"], proof, pub);
+    } else if (proof.protocol === "fflonk") {
+        // res = await fflonk.exportSolidityCallData(pub, proof);
+    } else {
+        throw new Error("Invalid Protocol");
+    }
+    fs.writeFileSync(callName, res, "utf-8");
 
     return 0;
 }

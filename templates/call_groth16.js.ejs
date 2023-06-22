@@ -1,0 +1,42 @@
+import { TupleBuilder, beginCell } from 'ton-core';
+
+export function generateFuncCallData() {
+    const A = hexToSlice("<%= proof.A %>");
+    const B = hexToSlice("<%= proof.B %>");
+    const C = hexToSlice("<%= proof.C %>");
+    
+    const publicSignals = new TupleBuilder();
+    <% for (let i=0; i<pub.length; i++) { %>
+    publicSignals.writeNumber(<%= pub[i] %>);
+    <% } %>
+    const args = [A, B, C, publicSignals.build()];
+    return args;
+}
+
+
+function hexToSlice(src) {
+    const builder = beginCell();
+    writeStringHex(src, builder);
+    return builder.asSlice();
+}
+
+function writeStringHex(src, builder) {
+    const buff = Buffer.from(src, "hex");
+    writeBuffer(buff, builder);
+
+    function writeBuffer(src, builder) {
+        if (src.length > 0) {
+            let bytes = Math.floor(builder.availableBits / 8);
+            if (src.length > bytes) {
+                let a = src.subarray(0, bytes);
+                let t = src.subarray(bytes);
+                builder = builder.storeBuffer(a);
+                let bb = beginCell();
+                writeBuffer(t, bb);
+                builder = builder.storeRef(bb.endCell());
+            } else {
+                builder = builder.storeBuffer(src);
+            }
+        }
+    }
+}
