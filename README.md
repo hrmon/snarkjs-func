@@ -1,6 +1,36 @@
 
 ![tests](https://github.com/iden3/snarkjs/workflows/tests/badge.svg)![Check%20snarkjs%20tutorial](https://github.com/iden3/snarkjs/workflows/Check%20snarkjs%20tutorial/badge.svg)
 
+
+# !! REGARDING TVM CHALLENGE !!
+
+As a submission for the TVM Challenge, support for generating verifiers in FunC language has been added to `snarkjs` tool (Using **BLS12-381** and for **Groth16** and **Plonk** protocols).
+
+As a project from `iden3`, `snarkjs` makes it easy to generate zero-knowledge proofs based on `circom 2.0` circuits.
+
+This implementation uses the recently introduced opcodes for **BLS12-381** curve operations and **Keccak256** hash from TVM.
+
+To use this fork, you can clone it and then in its root directory, run:
+
+```sh
+npm ci
+```
+
+Then follow the default guide from `snarkjs` below until step 24 (replace `snarkjs` with `node cli.js` at the begining of the commands when applicable). At the end, you can export a verifer in FunC using the command:
+
+```sh
+node cli.js zkey export funcverifier circuit_final.zkey verifier.fc
+```
+
+Also, the following command exports a JS snippet based on `ton` JS library, which generates call data for the verifier.
+
+```sh
+node cli.js zkey export funccall public.json proof.json func_call.js
+```
+
+Visit https://github.com/hrmon/snark-func-example for an example.
+
+
 # snarkjs
 
 This is a **JavaScript and Pure Web Assembly implementation of zkSNARK and PLONK schemes.** It uses the Groth16 Protocol (3 point only and 3 pairings), PLONK and FFLONK.
